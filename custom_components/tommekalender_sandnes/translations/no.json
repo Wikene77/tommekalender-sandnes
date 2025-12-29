@@ -1,0 +1,23 @@
+{
+  "title": "Tømmekalender Sandnes",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tømmekalender Sandnes",
+        "description": "Lim inn URL til tømmekalenderen fra hentavfall.no (Sandnes kommune).",
+        "data": {
+          "url": "Tømmekalender-URL",
+          "name": "Navn"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan ikke koble til",
+      "invalid_url": "Ugyldig URL",
+      "unknown": "Uventet feil"
+    },
+    "abort": {
+      "already_configured": "Denne kalenderen er allerede konfigurert"
+    }
+  }
+}
