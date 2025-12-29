@@ -1,7 +1,0 @@
-{
-  "name": "Tømmekalender Sandnes",
-  "content_in_root": false,
-  "domain": "tommekalender_sandnes",
-  "documentation": "https://github.com/Wikene77/tommekalender-sandnes",
-  "codeowners": ["@Wikene77"]
-}
