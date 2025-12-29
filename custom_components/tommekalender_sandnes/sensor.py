@@ -14,6 +14,15 @@ from .const import DEFAULT_NAME, DOMAIN, WASTE_TYPES
 
 MAX_UPCOMING = 5
 
+# More explanatory icons per waste type (fallback included)
+WASTE_ICONS = {
+    "Restavfall": "mdi:trash-can-variant",
+    "Matavfall": "mdi:food-apple-outline",
+    "Papir": "mdi:file-document-outline",
+    "Plastemballasje": "mdi:bottle-soda-classic-outline",
+    "Juletre": "mdi:pine-tree",
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -57,7 +66,6 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
 
 class TommekalenderNextSensor(_BaseTommekalenderSensor):
     _attr_device_class = SensorDeviceClass.DATE
-    _attr_icon = "mdi:trash-can-outline"
 
     def __init__(self, coordinator, entry_id: str, label: str) -> None:
         super().__init__(coordinator)
@@ -66,6 +74,10 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
         slug = WASTE_TYPES[label]
         self._attr_name = label
         self._attr_unique_id = f"{entry_id}_next_{slug}"
+
+    @property
+    def icon(self) -> str:
+        return WASTE_ICONS.get(self._label, "mdi:trash-can-outline")
 
     @property
     def native_value(self) -> dt.date | None:
@@ -91,7 +103,7 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
 
 class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
     _attr_device_class = SensorDeviceClass.DATE
-    _attr_icon = "mdi:calendar"
+    _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator, entry_id: str) -> None:
         super().__init__(coordinator)
