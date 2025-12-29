@@ -1,9 +1,9 @@
 {
-  "title": "Tømmekalender Sandnes",
+  "title": "Tømmekalender Sandnes Kommune",
   "config": {
     "step": {
       "user": {
-        "title": "Tømmekalender Sandnes",
+        "title": "Tømmekalender Sandnes Kommune",
         "description": "Lim inn URL til tømmekalenderen fra hentavfall.no (Sandnes kommune).",
         "data": {
           "url": "Tømmekalender-URL",
