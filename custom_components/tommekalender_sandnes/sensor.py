@@ -16,7 +16,7 @@ MAX_UPCOMING = 5
 
 # More explanatory icons per waste type (fallback included)
 WASTE_ICONS = {
-    "Restavfall": "mdi:trash-can-variant",
+    "Restavfall": "mdi:trash-can",
     "Matavfall": "mdi:food-apple-outline",
     "Papir": "mdi:file-document-outline",
     "Plastemballasje": "mdi:bottle-soda-classic-outline",
