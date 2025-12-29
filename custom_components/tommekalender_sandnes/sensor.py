@@ -34,11 +34,11 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
 
     # Calendar summary sensor
-    entities.append(TommekalenderCalendarSensor(coordinator, entry.entry_id))
+    entities.append(TommekalenderCalendarSensor(coordinator, entry))
 
     # Next-by-type sensors
     for label in WASTE_TYPES.keys():
-        entities.append(TommekalenderNextSensor(coordinator, entry.entry_id, label))
+        entities.append(TommekalenderNextSensor(coordinator, entry, label))
 
     async_add_entities(entities)
 
@@ -47,9 +47,23 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+
     @property
     def available(self) -> bool:
         return self.coordinator.last_update_success
+
+    @property
+    def device_info(self):
+        # Groups all sensors under one device in HA UI
+        return {
+            "identifiers": {(DOMAIN, self._entry.entry_id)},
+            "name": self._entry.title or DEFAULT_NAME,
+            "manufacturer": "hentavfall.no",
+            "model": "Waste calendar",
+        }
 
     def _data(self) -> dict[str, Any]:
         d = getattr(self.coordinator, "data", None)
@@ -67,13 +81,13 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
 class TommekalenderNextSensor(_BaseTommekalenderSensor):
     _attr_device_class = SensorDeviceClass.DATE
 
-    def __init__(self, coordinator, entry_id: str, label: str) -> None:
-        super().__init__(coordinator)
+    def __init__(self, coordinator, entry: ConfigEntry, label: str) -> None:
+        super().__init__(coordinator, entry)
         self._label = label
 
         slug = WASTE_TYPES[label]
-        self._attr_name = label
-        self._attr_unique_id = f"{entry_id}_next_{slug}"
+        self._attr_name = f"{DEFAULT_NAME} {label}"
+        self._attr_unique_id = f"{entry.entry_id}_next_{slug}"
 
     @property
     def icon(self) -> str:
@@ -105,10 +119,10 @@ class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
     _attr_device_class = SensorDeviceClass.DATE
     _attr_icon = "mdi:calendar-clock"
 
-    def __init__(self, coordinator, entry_id: str) -> None:
-        super().__init__(coordinator)
-        self._attr_name = "Kalender"
-        self._attr_unique_id = f"{entry_id}_calendar"
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_name = f"{DEFAULT_NAME} Kalender"
+        self._attr_unique_id = f"{entry.entry_id}_calendar"
 
     @property
     def native_value(self) -> dt.date | None:
