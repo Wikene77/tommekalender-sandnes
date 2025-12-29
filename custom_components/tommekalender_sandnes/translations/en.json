@@ -3,7 +3,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Waste Collection Calendar (Sandnes)",
+        "title": "Waste Collection Calendar (Sandnes Kommune)",
         "description": "Paste your waste calendar URL from hentavfall.no (Sandnes kommune).",
         "data": {
           "url": "Calendar URL",
