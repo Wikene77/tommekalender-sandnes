@@ -11,10 +11,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEFAULT_NAME, DOMAIN, WASTE_TYPES
 
-
 MAX_UPCOMING = 5
 
-# More explanatory icons per waste type (fallback included)
+# Icons per waste type (HA-compatible)
 WASTE_ICONS = {
     "Restavfall": "mdi:trash-can",
     "Matavfall": "mdi:food-apple-outline",
@@ -44,6 +43,8 @@ async def async_setup_entry(
 
 
 class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
+    """Common behavior for all sensors in this integration."""
+
     _attr_has_entity_name = True
     _attr_should_poll = False
 
@@ -57,7 +58,7 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        # Groups all sensors under one device in HA UI
+        # Group all sensors under one device in HA UI
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
             "name": self._entry.title or DEFAULT_NAME,
@@ -86,7 +87,8 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
         self._label = label
 
         slug = WASTE_TYPES[label]
-        self._attr_name = f"{DEFAULT_NAME} {label}"
+        # IMPORTANT: do NOT prefix DEFAULT_NAME here, or HA may double-prefix entity_id
+        self._attr_name = label
         self._attr_unique_id = f"{entry.entry_id}_next_{slug}"
 
     @property
@@ -121,7 +123,8 @@ class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        self._attr_name = f"{DEFAULT_NAME} Kalender"
+        # IMPORTANT: keep it short to avoid double-prefixed entity_id
+        self._attr_name = "Kalender"
         self._attr_unique_id = f"{entry.entry_id}_calendar"
 
     @property
