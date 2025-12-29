@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass
 class Pickup:
     date: dt.date
-    types: List[str]  # labels like "Restavfall"
+    types: List[str]
 
 
 def _guess_base_year(html: str) -> int:
@@ -27,56 +27,52 @@ def _guess_base_year(html: str) -> int:
     return min(years) if years else dt.date.today().year
 
 
-def _strip_tags_keep_alt(html: str) -> str:
-    """
-    Make <img alt="Restavfall"> visible as [Restavfall] in the plain text,
-    then strip remaining tags and normalize whitespace.
-    """
-    html = re.sub(r"<img[^>]*alt=[\"']([^\"']+)[\"'][^>]*>", r" [\1] ", html, flags=re.I)
-    html = re.sub(r"<[^>]+>", " ", html)
-    html = re.sub(r"\s+", " ", html).strip()
-    return html
+def _strip_tags(html: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _find_types_in_text(block: str) -> List[str]:
+    b = block.lower()
+    found: List[str] = []
+    for label in WASTE_TYPES.keys():
+        if label.lower() in b:
+            found.append(label)
+    return found
 
 
 def _parse_pickups(html: str) -> List[Pickup]:
     base_year = _guess_base_year(html)
-    text = _strip_tags_keep_alt(html)
+    text = _strip_tags(html)
 
-    # Matches: "02.01 - fredag"
-    pattern = re.compile(r"\b(\d{1,2})\.(\d{1,2})\s*-\s*([a-zæøå]+)\b", re.I)
-    matches = list(pattern.finditer(text))
+    # tolerant dd.mm
+    date_re = re.compile(r"\b(\d{1,2})\.(\d{1,2})\b")
+    matches = list(date_re.finditer(text))
 
-    raw: List[Pickup] = []
+    pickups: List[Pickup] = []
 
-    for i, m in enumerate(matches):
+    for m in matches:
         dd = int(m.group(1))
         mm = int(m.group(2))
 
         start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        end = min(len(text), start + 260)
         block = text[start:end]
 
-        types: List[str] = []
-        for label in WASTE_TYPES.keys():
-            if f"[{label}]" in block:
-                types.append(label)
-
+        types = _find_types_in_text(block)
         if not types:
             continue
 
-        # Handle year turn: if we are in December and calendar starts in January etc.
-        # Use base_year, but if month is "far behind" current month at end of year, bump year.
-        year = base_year
         try:
-            d = dt.date(year, mm, dd)
+            d = dt.date(base_year, mm, dd)
         except ValueError:
             continue
 
-        raw.append(Pickup(date=d, types=types))
+        pickups.append(Pickup(date=d, types=types))
 
-    # Merge pickups with same date (e.g. Matavfall + Papir same day)
+    # merge same date
     merged: Dict[dt.date, set[str]] = {}
-    for p in raw:
+    for p in pickups:
         merged.setdefault(p.date, set()).update(p.types)
 
     out = [Pickup(date=d, types=sorted(list(ts))) for d, ts in merged.items()]
@@ -84,12 +80,12 @@ def _parse_pickups(html: str) -> List[Pickup]:
     return out
 
 
-class HentAvfallCoordinator(DataUpdateCoordinator[Dict]):
+class TommekalenderCoordinator(DataUpdateCoordinator[Dict]):
     def __init__(self, hass: HomeAssistant, url: str) -> None:
         super().__init__(
             hass,
-            logger=_LOGGER,  # IMPORTANT: must not be None
-            name="HentAvfall",
+            logger=_LOGGER,
+            name="Tommekalender",
             update_interval=dt.timedelta(hours=DEFAULT_SCAN_INTERVAL_HOURS),
         )
         self._url = url
@@ -102,7 +98,6 @@ class HentAvfallCoordinator(DataUpdateCoordinator[Dict]):
                 if resp.status != 200:
                     raise UpdateFailed(f"HTTP {resp.status}")
                 html = await resp.text()
-
         except asyncio.TimeoutError as e:
             raise UpdateFailed("Timeout") from e
         except Exception as e:
@@ -111,7 +106,6 @@ class HentAvfallCoordinator(DataUpdateCoordinator[Dict]):
         pickups = _parse_pickups(html)
         today = dt.date.today()
 
-        # Next date per type
         next_by_type: Dict[str, dt.date | None] = {k: None for k in WASTE_TYPES.keys()}
         for p in pickups:
             if p.date < today:
@@ -124,10 +118,7 @@ class HentAvfallCoordinator(DataUpdateCoordinator[Dict]):
             {"date": p.date.isoformat(), "types": p.types}
             for p in pickups
             if p.date >= today
-        ][:60]
-
-        # Debug (enable by setting log level for this integration to debug)
-        _LOGGER.debug("Parsed pickups=%s, next_by_type=%s", len(pickups), next_by_type)
+        ][:30]
 
         return {
             "next": {k: (v.isoformat() if v else None) for k, v in next_by_type.items()},
