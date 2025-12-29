@@ -33,7 +33,6 @@ def _strip_tags_keep_img_alt(html: str) -> str:
     hentavfall.no uses icons with the waste type name in alt/title.
     If we blindly remove tags, we lose the waste type labels.
     """
-
     # Turn <img ... alt="Restavfall" ...> into " Restavfall " before stripping.
     html = re.sub(
         r'<img[^>]*(?:alt|title)="([^"]+)"[^>]*>',
@@ -88,13 +87,10 @@ def _parse_pickups(html: str) -> List[Pickup]:
 
     Fallback strategy: text-scan for dd.mm + waste type labels.
     """
-
     today = dt.date.today()
     pickups: List[Pickup] = []
 
-    # -----------------
     # 1) Structured parse from table (preferred)
-    # -----------------
     month_bodies = _extract_rows_by_month(html)
     if month_bodies:
         tr_re = re.compile(
@@ -133,9 +129,7 @@ def _parse_pickups(html: str) -> List[Pickup]:
 
                 pickups.append(Pickup(date=d, types=types))
 
-    # -----------------
     # 2) Fallback: text scan (handles unexpected HTML changes)
-    # -----------------
     if not pickups:
         base_year = _guess_base_year(html)
         text = _strip_tags_keep_img_alt(html)
@@ -169,9 +163,7 @@ def _parse_pickups(html: str) -> List[Pickup]:
 
             pickups.append(Pickup(date=d, types=types))
 
-    # -----------------
     # Merge duplicates per date
-    # -----------------
     merged: Dict[dt.date, set[str]] = {}
     for p in pickups:
         merged.setdefault(p.date, set()).update(p.types)
