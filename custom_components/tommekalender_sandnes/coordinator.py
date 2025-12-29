@@ -27,9 +27,47 @@ def _guess_base_year(html: str) -> int:
     return min(years) if years else dt.date.today().year
 
 
-def _strip_tags(html: str) -> str:
+def _strip_tags_keep_img_alt(html: str) -> str:
+    """Strip HTML tags, but keep <img alt/title> text.
+
+    hentavfall.no uses icons with the waste type name in alt/title.
+    If we blindly remove tags, we lose the waste type labels.
+    """
+
+    # Turn <img ... alt="Restavfall" ...> into " Restavfall " before stripping.
+    html = re.sub(
+        r'<img[^>]*(?:alt|title)="([^"]+)"[^>]*>',
+        r" \1 ",
+        html,
+        flags=re.IGNORECASE,
+    )
+
     text = re.sub(r"<[^>]+>", " ", html)
     return re.sub(r"\s+", " ", text).strip()
+
+
+# Backwards-compatible alias used by older parsing logic
+def _strip_tags(html: str) -> str:
+    return _strip_tags_keep_img_alt(html)
+
+
+def _extract_rows_by_month(html: str) -> List[tuple[int, int, str]]:
+    """Return list of (month, year, tbody_html) found in data-month="M-YYYY"."""
+    out: List[tuple[int, int, str]] = []
+
+    # Example: <tbody data-month="1-2026" ...> ... </tbody>
+    tbody_re = re.compile(
+        r'<tbody[^>]*\bdata-month\s*=\s*"(?P<m>\d{1,2})-(?P<y>20\d{2})"[^>]*>(?P<body>.*?)</tbody>',
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    for m in tbody_re.finditer(html):
+        month = int(m.group("m"))
+        year = int(m.group("y"))
+        body = m.group("body")
+        out.append((month, year, body))
+
+    return out
 
 
 def _find_types_in_text(block: str) -> List[str]:
@@ -42,35 +80,98 @@ def _find_types_in_text(block: str) -> List[str]:
 
 
 def _parse_pickups(html: str) -> List[Pickup]:
-    base_year = _guess_base_year(html)
-    text = _strip_tags(html)
+    """Parse pickups from hentavfall.no.
 
-    # tolerant dd.mm
-    date_re = re.compile(r"\b(\d{1,2})\.(\d{1,2})\b")
-    matches = list(date_re.finditer(text))
+    Primary strategy (robust): parse the calendar table structure:
+      - <tbody data-month="M-YYYY"> gives the year (and month)
+      - each <tr class="waste-calendar__item"> contains the date + <img alt/title="TYPE">
 
+    Fallback strategy: text-scan for dd.mm + waste type labels.
+    """
+
+    today = dt.date.today()
     pickups: List[Pickup] = []
 
-    for m in matches:
-        dd = int(m.group(1))
-        mm = int(m.group(2))
+    # -----------------
+    # 1) Structured parse from table (preferred)
+    # -----------------
+    month_bodies = _extract_rows_by_month(html)
+    if month_bodies:
+        tr_re = re.compile(
+            r"<tr[^>]*\bwaste-calendar__item\b[^>]*>(?P<tr>.*?)</tr>",
+            re.IGNORECASE | re.DOTALL,
+        )
+        ddmm_re = re.compile(r"\b(\d{1,2})\.(\d{1,2})\b")
+        dd_only_re = re.compile(r"\b(\d{1,2})\b")
 
-        start = m.end()
-        end = min(len(text), start + 260)
-        block = text[start:end]
+        for month_attr, year, tbody_html in month_bodies:
+            for tr_m in tr_re.finditer(tbody_html):
+                row_html = tr_m.group("tr")
+                row_text = _strip_tags_keep_img_alt(row_html)
 
-        types = _find_types_in_text(block)
-        if not types:
-            continue
+                # Date is usually dd.mm in the first column, but be tolerant.
+                mm = month_attr
+                ddmm = ddmm_re.search(row_text)
+                if ddmm:
+                    dd = int(ddmm.group(1))
+                    mm = int(ddmm.group(2))
+                else:
+                    # Some layouts might show only day number inside month tbody.
+                    dd_only = dd_only_re.search(row_text)
+                    if not dd_only:
+                        continue
+                    dd = int(dd_only.group(1))
 
-        try:
-            d = dt.date(base_year, mm, dd)
-        except ValueError:
-            continue
+                types = _find_types_in_text(row_text)
+                if not types:
+                    continue
 
-        pickups.append(Pickup(date=d, types=types))
+                try:
+                    d = dt.date(year, mm, dd)
+                except ValueError:
+                    continue
 
-    # merge same date
+                pickups.append(Pickup(date=d, types=types))
+
+    # -----------------
+    # 2) Fallback: text scan (handles unexpected HTML changes)
+    # -----------------
+    if not pickups:
+        base_year = _guess_base_year(html)
+        text = _strip_tags_keep_img_alt(html)
+
+        date_re = re.compile(r"\b(\d{1,2})\.(\d{1,2})\b")
+        for m in date_re.finditer(text):
+            dd = int(m.group(1))
+            mm = int(m.group(2))
+
+            start = m.end()
+            end = min(len(text), start + 300)
+            block = text[start:end]
+
+            types = _find_types_in_text(block)
+            if not types:
+                continue
+
+            # Prefer a year that makes the date >= today (important around new year)
+            d = None
+            for y in (base_year, base_year + 1):
+                try:
+                    cand = dt.date(y, mm, dd)
+                except ValueError:
+                    continue
+                if cand >= today:
+                    d = cand
+                    break
+
+            if d is None:
+                continue
+
+            pickups.append(Pickup(date=d, types=types))
+
+    # -----------------
+    # Merge duplicates per date
+    # -----------------
     merged: Dict[dt.date, set[str]] = {}
     for p in pickups:
         merged.setdefault(p.date, set()).update(p.types)
