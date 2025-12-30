@@ -10,7 +10,7 @@ from .coordinator import TommekalenderCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["sensor", "calendar"]
+PLATFORMS: list[str] = ["sensor", "calendar", "binary_sensor"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
