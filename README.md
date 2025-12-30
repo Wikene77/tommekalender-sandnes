@@ -6,9 +6,7 @@ date-based sensors in Home Assistant.
 Features
 One sensor per waste type (next pickup date)
 One combined calendar sensor with upcoming pickups
-Two helper binary sensors:
-Pickup today
-Pickup tomorrow
+Two helper binary sensors (pickup today / pickup tomorrow)
 All entities grouped under one device
 Supports automations and notifications
 UI setup via Home Assistant (Config Flow)
@@ -76,26 +74,30 @@ Attributes
 type
 Waste type name (e.g. Restavfall)
 upcoming
-The next 5 upcoming pickups (same structure as calendar sensor)
+The next 5 upcoming pickups
 source_url
 Original hentavfall.no calendar URL
 Pickup Binary Sensors
-These are simple helper sensors (very handy for automations):
+Simple helper sensors designed for automations:
 binary_sensor.tommekalender_tomming_i_dag
 binary_sensor.tommekalender_tomming_i_morgen
 State
 on if one or more waste types are collected that day
 off if there is no pickup
 Attributes
-date – the date checked (YYYY-MM-DD)
-types – list of waste types collected that day (empty if none)
+date – date checked (YYYY-MM-DD)
+types – list of waste types collected that day
 source_url – original calendar URL
-All entities are grouped under a single device in Home Assistant.
+These sensors are ideal for notifications and conditional automations.
 Automations
 Example: Notify only when there is pickup tomorrow
+Condition
 {{ is_state('binary_sensor.tommekalender_tomming_i_morgen', 'on') }}
-Message example:
-I morgen hentes: {{ state_attr('binary_sensor.tommekalender_tomming_i_morgen', 'types') | join(', ') }}
+Message example
+I morgen hentes: {{
+  state_attr('binary_sensor.tommekalender_tomming_i_morgen', 'types')
+  | join(', ')
+}}
 Example use cases:
 Notify the evening before pickup
 Show “pickup tomorrow” on dashboard
