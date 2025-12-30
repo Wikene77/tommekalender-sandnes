@@ -8,11 +8,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_NAME, DOMAIN
 
 
-MAX_EVENTS = 30  # hvor mange du vil eksponere i kalender
+MAX_EVENTS = 30
 
 
 async def async_setup_entry(
@@ -31,7 +32,7 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = "Tømming"  # blir "Tømmekalender Tømming" i UI
+        self._attr_name = "Tømming"
         self._attr_unique_id = f"{entry.entry_id}_calendar_tomming"
 
     @property
@@ -47,17 +48,15 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
             "model": "Waste calendar",
         }
 
+    def _data(self) -> dict[str, Any]:
+        d = getattr(self.coordinator, "data", None)
+        return d if isinstance(d, dict) else {}
+
     def _upcoming(self) -> list[dict[str, Any]]:
-        data = getattr(self.coordinator, "data", None)
-        if not isinstance(data, dict):
-            return []
-        items = data.get("upcoming") or []
-        if not isinstance(items, list):
-            return []
-        return items[:MAX_EVENTS]
+        items = self._data().get("upcoming") or []
+        return items[:MAX_EVENTS] if isinstance(items, list) else []
 
     def _to_event(self, item: dict[str, Any]) -> CalendarEvent | None:
-        # item: {"date": "YYYY-MM-DD", "types": ["Restavfall", ...]}
         date_s = item.get("date")
         types = item.get("types") or []
         if not date_s:
@@ -68,16 +67,18 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
         except ValueError:
             return None
 
-        # All-day event i lokal tid
-        start = dt.datetime.combine(d, dt.time.min)
+        # All-day event (tz-aware)
+        start = dt_util.start_of_local_day(dt_util.as_local(dt.datetime.combine(d, dt.time.min)))
         end = start + dt.timedelta(days=1)
 
-        summary = "Tømming: " + ", ".join(types) if types else "Tømming"
+        summary = f"Tømming: {', '.join(types)}" if types else "Tømming"
+        source_url = self._data().get("source_url")
+
         return CalendarEvent(
             summary=summary,
             start=start,
             end=end,
-            description=f"Kilde: {getattr(self.coordinator, 'data', {}).get('source_url')}",
+            description=f"Kilde: {source_url}" if source_url else None,
             location="Sandnes kommune",
         )
 
@@ -92,18 +93,14 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
             ev = self._to_event(it)
             if not ev:
                 continue
-
-            # filtrer på tidsrom
             if ev.end <= start_date or ev.start >= end_date:
                 continue
-
             events.append(ev)
         return events
 
     @property
     def event(self) -> CalendarEvent | None:
-        # “neste event” (brukes av mange kort)
-        now = dt.datetime.now()
+        now = dt_util.now()
         for it in self._upcoming():
             ev = self._to_event(it)
             if ev and ev.end > now:
