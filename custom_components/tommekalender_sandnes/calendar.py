@@ -12,7 +12,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_NAME, DOMAIN
 
-
 MAX_EVENTS = 30
 
 
@@ -26,14 +25,22 @@ async def async_setup_entry(
 
 
 class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
-    _attr_has_entity_name = True
+    """
+    Key idea:
+    - has_entity_name=False => entity_id becomes based on this entity's own name only
+    - name is entry.title (e.g. "Tømmekalender Sandnes Kommune")
+      => calendar.tommekalender_sandnes_kommune (no extra "_tomming")
+    """
+    _attr_has_entity_name = False
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = "Tømming"
-        self._attr_unique_id = f"{entry.entry_id}_calendar_tomming"
+
+        # IMPORTANT: this drives the entity_id
+        self._attr_name = (entry.title or f"{DEFAULT_NAME} Sandnes Kommune").strip()
+        self._attr_unique_id = f"{entry.entry_id}_calendar_entity"
 
     @property
     def available(self) -> bool:
@@ -41,9 +48,10 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
 
     @property
     def device_info(self) -> dict[str, Any]:
+        # Same device identifiers as sensors (nice grouping), but device name doesn't affect entity_id now
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": self._entry.title or DEFAULT_NAME,
+            "name": DEFAULT_NAME,
             "manufacturer": "hentavfall.no",
             "model": "Waste calendar",
         }
@@ -67,7 +75,6 @@ class TommekalenderCalendarEntity(CoordinatorEntity, CalendarEntity):
         except ValueError:
             return None
 
-        # All-day event (tz-aware)
         start = dt_util.start_of_local_day(dt_util.as_local(dt.datetime.combine(d, dt.time.min)))
         end = start + dt.timedelta(days=1)
 
