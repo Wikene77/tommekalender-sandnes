@@ -9,10 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, WASTE_TYPES
+from .const import DEFAULT_NAME, DOMAIN, WASTE_TYPES
 
 MAX_UPCOMING = 5
 
+# Icons per waste type (HA-compatible)
 WASTE_ICONS = {
     "Restavfall": "mdi:trash-can",
     "Matavfall": "mdi:food-apple-outline",
@@ -30,8 +31,11 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities: list[SensorEntity] = []
+
+    # Calendar summary sensor (date sensor)
     entities.append(TommekalenderCalendarSensor(coordinator, entry))
 
+    # Next-by-type sensors
     for label in WASTE_TYPES.keys():
         entities.append(TommekalenderNextSensor(coordinator, entry, label))
 
@@ -39,7 +43,13 @@ async def async_setup_entry(
 
 
 class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
-    _attr_has_entity_name = False  # <-- viktig: hindrer entry-title i entity_id
+    """
+    Key idea:
+    - has_entity_name=True => entity_id uses device name + entity name
+    - device name is forced to DEFAULT_NAME ("Tømmekalender") so sensors become:
+      sensor.tommekalender_matavfall etc.
+    """
+    _attr_has_entity_name = True
     _attr_should_poll = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
@@ -51,10 +61,11 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
         return self.coordinator.last_update_success
 
     @property
-    def device_info(self):
+    def device_info(self) -> dict[str, Any]:
+        # IMPORTANT: fixed device name so sensor entity_ids don't get "sandnes_kommune" etc.
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": self._entry.title,  # kan være "Tømmekalender Sandnes Kommune"
+            "name": DEFAULT_NAME,
             "manufacturer": "hentavfall.no",
             "model": "Waste calendar",
         }
@@ -79,7 +90,9 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
         self._label = label
 
         slug = WASTE_TYPES[label]
-        self._attr_name = label  # <-- kort navn gir sensor.tommekalender_<type>
+
+        # Entity name only (device name supplies the "Tømmekalender" prefix)
+        self._attr_name = label
         self._attr_unique_id = f"{entry.entry_id}_next_{slug}"
 
     @property
@@ -109,6 +122,8 @@ class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
+
+        # Keep it short: device name already says "Tømmekalender"
         self._attr_name = "Kalender"
         self._attr_unique_id = f"{entry.entry_id}_calendar"
 
