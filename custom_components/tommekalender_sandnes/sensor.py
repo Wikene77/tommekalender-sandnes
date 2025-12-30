@@ -9,11 +9,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DEFAULT_NAME, DOMAIN, WASTE_TYPES
+from .const import DOMAIN, WASTE_TYPES
 
 MAX_UPCOMING = 5
 
-# Icons per waste type (HA-compatible)
 WASTE_ICONS = {
     "Restavfall": "mdi:trash-can",
     "Matavfall": "mdi:food-apple-outline",
@@ -31,11 +30,8 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities: list[SensorEntity] = []
-
-    # Calendar summary sensor
     entities.append(TommekalenderCalendarSensor(coordinator, entry))
 
-    # Next-by-type sensors
     for label in WASTE_TYPES.keys():
         entities.append(TommekalenderNextSensor(coordinator, entry, label))
 
@@ -43,9 +39,7 @@ async def async_setup_entry(
 
 
 class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
-    """Common behavior for all sensors in this integration."""
-
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False  # <-- viktig: hindrer entry-title i entity_id
     _attr_should_poll = False
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
@@ -58,10 +52,9 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        # Group all sensors under one device in HA UI
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": self._entry.title or DEFAULT_NAME,
+            "name": self._entry.title,  # kan være "Tømmekalender Sandnes Kommune"
             "manufacturer": "hentavfall.no",
             "model": "Waste calendar",
         }
@@ -71,12 +64,11 @@ class _BaseTommekalenderSensor(CoordinatorEntity, SensorEntity):
         return d if isinstance(d, dict) else {}
 
     def _upcoming5(self) -> list[dict[str, Any]]:
-        return (self._data().get("upcoming") or [])[:MAX_UPCOMING]
+        items = self._data().get("upcoming") or []
+        return items[:MAX_UPCOMING] if isinstance(items, list) else []
 
     def _common_attrs(self) -> dict[str, Any]:
-        return {
-            "source_url": self._data().get("source_url"),
-        }
+        return {"source_url": self._data().get("source_url")}
 
 
 class TommekalenderNextSensor(_BaseTommekalenderSensor):
@@ -87,8 +79,7 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
         self._label = label
 
         slug = WASTE_TYPES[label]
-        # IMPORTANT: do NOT prefix DEFAULT_NAME here, or HA may double-prefix entity_id
-        self._attr_name = label
+        self._attr_name = label  # <-- kort navn gir sensor.tommekalender_<type>
         self._attr_unique_id = f"{entry.entry_id}_next_{slug}"
 
     @property
@@ -108,12 +99,7 @@ class TommekalenderNextSensor(_BaseTommekalenderSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs = self._common_attrs()
-        attrs.update(
-            {
-                "type": self._label,
-                "upcoming": self._upcoming5(),
-            }
-        )
+        attrs.update({"type": self._label, "upcoming": self._upcoming5()})
         return attrs
 
 
@@ -123,7 +109,6 @@ class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
 
     def __init__(self, coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        # IMPORTANT: keep it short to avoid double-prefixed entity_id
         self._attr_name = "Kalender"
         self._attr_unique_id = f"{entry.entry_id}_calendar"
 
@@ -141,12 +126,6 @@ class TommekalenderCalendarSensor(_BaseTommekalenderSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         upcoming = self._upcoming5()
         first_types = upcoming[0].get("types") if upcoming else []
-
         attrs = self._common_attrs()
-        attrs.update(
-            {
-                "next_types": first_types,
-                "upcoming": upcoming,
-            }
-        )
+        attrs.update({"next_types": first_types, "upcoming": upcoming})
         return attrs
