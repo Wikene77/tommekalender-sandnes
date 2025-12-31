@@ -196,7 +196,26 @@ class TommekalenderCoordinator(DataUpdateCoordinator[Dict]):
         except Exception as e:
             raise UpdateFailed(str(e)) from e
 
-        pickups = _parse_pickups(html)
+        # --- Provider routing ---
+        url_lc = self._url.lower()
+
+        if "stavanger.kommune.no" in url_lc:
+            from .providers.stavanger_kommune import parse as parse_pickups
+
+            raw_pickups = parse_pickups(html)  # list[dict]: {"date": dt.date, "types": [...]}
+            # Konverter til Pickup-objekter for resten av koden:
+            pickups = []
+            for it in raw_pickups:
+                d = it.get("date")
+                types = it.get("types") or []
+                if d and types:
+                    pickups.append(Pickup(date=d, types=types))
+            pickups.sort(key=lambda p: p.date)
+
+        else:
+            # Default: Sandnes/hentavfall.no parser (eksisterende logikk)
+            pickups = _parse_pickups(html)
+
         today = dt.date.today()
 
         next_by_type: Dict[str, dt.date | None] = {k: None for k in WASTE_TYPES.keys()}
