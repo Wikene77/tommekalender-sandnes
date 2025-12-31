@@ -118,6 +118,8 @@ automation:
         data:
           title: "Waste collection"
           message: "Waste will be collected tomorrow."
+
+
 🧠 Advanced notification with waste types
 Uses the calendar sensor to show what is collected tomorrow and the next pickup after tomorrow.
 automation:
@@ -150,6 +152,8 @@ Useful for:
 Extra reminders
 Light or display changes
 Dashboard indicators
+
+
 📆 Weekly waste summary
 Send a weekly overview of upcoming waste collection.
 automation:
@@ -168,6 +172,8 @@ automation:
             {{ item.date }}:
             - {{ item.types | join(', ') }}
             {% endfor %}
+
+
 Calendar & Dashboard usage
 📊 Show next pickup in the UI
 Example Markdown card:
@@ -175,20 +181,22 @@ type: markdown
 content: >
   **Next waste collection:**  
   {{ states('sensor.tommekalender_kalender') }}
-
   **Types:**  
   {{ state_attr('sensor.tommekalender_kalender','next_types') | join(', ') }}
+
 Works well with:
-Entities cards
-Markdown cards
-Mushroom cards
-Custom dashboards
+- Entities cards
+- Markdown cards
+- Mushroom cards
+- Custom dashboards
+
 Best practices
 Use binary sensors to decide when something happens
 Use calendar sensor attributes to decide what happens
 Avoid hardcoding dates — the integration handles year changes automatically
 Automations continue to work across month and year boundaries
-Notes
+
+Notes:
 Data is fetched periodically from hentavfall.no
 Temporary network issues may mark entities as unavailable
 Entities recover automatically when data is available again
