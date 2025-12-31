@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import List, Dict
+from typing import Dict, List
 
 
 MONTHS_NO = {
@@ -44,19 +44,20 @@ def parse(html: str) -> List[Dict]:
     """
     text = _strip_tags_keep_img_alt(html)
 
-    # We walk through the text in order, switching context when we see a month heading.
     # Example: "Måned januar 2026"
     month_re = re.compile(r"\bMåned\s+([A-Za-zæøåÆØÅ]+)\s+(20\d{2})\b", re.IGNORECASE)
 
-    # Date line: "07.01 - onsdag  Image: Juletre"
-    # We will find dd.mm occurrences and then look for waste types nearby.
+    # Date like "07.01"
     ddmm_re = re.compile(r"\b(\d{1,2})\.(\d{1,2})\b")
 
     # Waste type can show as "Image: Juletre" (accessibility text)
-    image_type_re = re.compile(r"\bImage:\s*([A-Za-zæøåÆØÅ \-/]+)", re.IGNORECASE)
+    # Keep it conservative so it doesn't swallow too much text.
+    image_type_re = re.compile(
+        r"\bImage:\s*([A-Za-zæøåÆØÅ][A-Za-zæøåÆØÅ \-/]{0,40})",
+        re.IGNORECASE,
+    )
 
-    # Split into chunks to preserve order and make "lookahead" easier
-    # (This is simple but works well for these pages)
+    # Split into chunks starting at month headings
     chunks = re.split(r"(?=\bMåned\s+)", text)
 
     pickups: List[Dict] = []
@@ -72,14 +73,12 @@ def parse(html: str) -> List[Dict]:
         if not month_no:
             continue
 
-        # Now parse all dates inside this month chunk
-        # We'll scan for dd.mm occurrences and grab types from a short window after each date.
+        # Parse all dates inside this month chunk
         for dmatch in ddmm_re.finditer(chunk):
             dd = int(dmatch.group(1))
             mm = int(dmatch.group(2))
 
-            # Some pages use dd.mm where mm matches the month; trust mm if present.
-            # If mm seems missing/odd, fall back to the month heading.
+            # If the page ever shows odd month numbers, fall back to month heading.
             if not (1 <= mm <= 12):
                 mm = month_no
 
@@ -96,19 +95,26 @@ def parse(html: str) -> List[Dict]:
             # Prefer explicit "Image: TYPE" labels
             for tm in image_type_re.finditer(window):
                 t = tm.group(1).strip()
-                # cut off at common separators that could appear after the label
+                # Cut off at common separators that could appear after the label
                 t = re.split(r"\s{2,}|\bLast ned\b|\bGnr\b|\bKommune\b", t)[0].strip(" -:;,")
                 if t and t not in types:
                     types.append(t)
 
             # Fallback: sometimes alt/title text is injected without "Image:"
             if not types:
-                # look for known-looking words near the date: take up to 3 capitalized tokens in a row
-                # (kept conservative to avoid picking random words)
+                # Conservative: grab capitalized word sequences, skip weekdays
                 caps_re = re.compile(r"\b([A-ZÆØÅ][a-zæøå]+(?:\s+[A-ZÆØÅ][a-zæøå]+)*)\b")
                 for cm in caps_re.finditer(window):
                     cand = cm.group(1).strip()
-                    if cand and cand.lower() not in ("onsdag", "torsdag", "fredag", "lørdag", "søndag", "mandag", "tirsdag"):
+                    if cand and cand.lower() not in (
+                        "onsdag",
+                        "torsdag",
+                        "fredag",
+                        "lørdag",
+                        "søndag",
+                        "mandag",
+                        "tirsdag",
+                    ):
                         if cand not in types:
                             types.append(cand)
                     if len(types) >= 4:
