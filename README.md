@@ -48,7 +48,9 @@ Install via **HACS** as a custom integration.
 
 ### Example URL
 
+~~~
 https://www.hentavfall.no/rogaland/sandnes/tommekalender/show?id=XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXX&municipality=Sandnes%20kommune&gnumber=CC&bnumber=XXXX&snumber=0
+~~~
 
 ### URL parameters explained
 
@@ -64,9 +66,9 @@ This URL is personal to your address and ensures correct pickup dates.
 
 ## Entities created
 
-### 📅 Calendar sensor
+### Calendar sensor
 
-**`sensor.tommekalender_kalender`**
+**sensor.tommekalender_kalender**
 
 - State shows the date of the next upcoming pickup
 - Attributes:
@@ -76,22 +78,22 @@ This URL is personal to your address and ensures correct pickup dates.
 
 ---
 
-### 🗑️ Waste type sensors
+### Waste type sensors
 
 Each sensor shows the **next pickup date** for that waste type.
 
-- `sensor.tommekalender_restavfall`
-- `sensor.tommekalender_matavfall`
-- `sensor.tommekalender_papir`
-- `sensor.tommekalender_plastemballasje`
-- `sensor.tommekalender_juletre`
+- sensor.tommekalender_restavfall  
+- sensor.tommekalender_matavfall  
+- sensor.tommekalender_papir  
+- sensor.tommekalender_plastemballasje  
+- sensor.tommekalender_juletre  
 
 ---
 
-### ✅ Binary sensors
+### Binary sensors
 
-- `binary_sensor.tommekalender_tomming_i_dag`
-- `binary_sensor.tommekalender_tomming_i_morgen`
+- binary_sensor.tommekalender_tomming_i_dag  
+- binary_sensor.tommekalender_tomming_i_morgen  
 
 These sensors turn **on/off automatically** based on actual pickup days and are ideal for automations.
 
@@ -99,11 +101,11 @@ These sensors turn **on/off automatically** based on actual pickup days and are 
 
 ## Automation examples
 
-### 🔔 Notify the evening before pickup (recommended)
+### Notify the evening before pickup (recommended)
 
 Send a notification at 20:00 **only if there is waste collection tomorrow**.
 
-```yaml
+~~~yaml
 automation:
   - alias: "Waste pickup reminder (evening before)"
     trigger:
@@ -118,10 +120,15 @@ automation:
         data:
           title: "Waste collection"
           message: "Waste will be collected tomorrow."
+~~~
 
+---
 
-🧠 Advanced notification with waste types
-Uses the calendar sensor to show what is collected tomorrow and the next pickup after tomorrow.
+### Advanced notification with waste types
+
+Uses the calendar sensor to show **what is collected tomorrow** and **the next pickup after tomorrow**.
+
+~~~yaml
 automation:
   - alias: "Waste pickup details (evening before)"
     trigger:
@@ -142,20 +149,31 @@ automation:
           message: >-
             Tomorrow:
             - {{ tomorrow_types | join('\n- ') }}
-🧹 Conditional automation by waste type
+~~~
+
+---
+
+### Conditional automation by waste type
+
 Trigger actions only for specific waste types.
+
+~~~yaml
 condition:
   - condition: template
     value_template: >
       {{ 'Plastemballasje' in state_attr('sensor.tommekalender_kalender','next_types') }}
+~~~
+
 Useful for:
-Extra reminders
-Light or display changes
-Dashboard indicators
+- Extra reminders
+- Light or display changes
+- Dashboard indicators
 
+---
 
-📆 Weekly waste summary
-Send a weekly overview of upcoming waste collection.
+### Weekly waste summary
+
+~~~yaml
 automation:
   - alias: "Weekly waste summary"
     trigger:
@@ -172,17 +190,23 @@ automation:
             {{ item.date }}:
             - {{ item.types | join(', ') }}
             {% endfor %}
+~~~
 
+---
 
-Calendar & Dashboard usage
-📊 Show next pickup in the UI
-Example Markdown card:
+## Calendar & Dashboard usage
+
+### Show next pickup in the UI
+
+~~~yaml
 type: markdown
 content: >
   **Next waste collection:**  
   {{ states('sensor.tommekalender_kalender') }}
+
   **Types:**  
   {{ state_attr('sensor.tommekalender_kalender','next_types') | join(', ') }}
+~~~
 
 Works well with:
 - Entities cards
@@ -190,14 +214,20 @@ Works well with:
 - Mushroom cards
 - Custom dashboards
 
-Best practices
-Use binary sensors to decide when something happens
-Use calendar sensor attributes to decide what happens
-Avoid hardcoding dates — the integration handles year changes automatically
-Automations continue to work across month and year boundaries
+---
 
-Notes:
-Data is fetched periodically from hentavfall.no
-Temporary network issues may mark entities as unavailable
-Entities recover automatically when data is available again
-The integration automatically handles year changes and calendar rollovers
+## Best practices
+
+- Use **binary sensors** to decide *when* something happens
+- Use **calendar sensor attributes** to decide *what* happens
+- Avoid hardcoding dates — the integration handles year changes automatically
+- Automations continue to work across month and year boundaries
+
+---
+
+## Notes
+
+- Data is fetched periodically from hentavfall.no
+- Temporary network issues may mark entities as unavailable
+- Entities recover automatically when data is available again
+- The integration automatically handles year changes and calendar rollovers
