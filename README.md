@@ -49,7 +49,7 @@ Install via **HACS** as a custom integration.
 ### Example URL
 
 ~~~
-https://www.hentavfall.no/rogaland/sandnes/tommekalender/show?id=XXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXX&municipality=Sandnes%20kommune&gnumber=CC&bnumber=XXXX&snumber=0
+https://www.hentavfall.no/rogaland/sandnes/tommekalender/show?id=2e14b7c8-68e8-46b9-8004-a44cceb536fb&municipality=Sandnes%20kommune&gnumber=69&bnumber=1752&snumber=0
 ~~~
 
 ### URL parameters explained
@@ -101,7 +101,7 @@ These sensors turn **on/off automatically** based on actual pickup days and are 
 
 ## Automation examples
 
-### Notify the evening before pickup (recommended)
+### Notify the evening before pickup
 
 Send a notification at 20:00 **only if there is waste collection tomorrow**.
 
