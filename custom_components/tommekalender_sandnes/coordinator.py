@@ -223,8 +223,11 @@ class TommekalenderCoordinator(DataUpdateCoordinator[Dict]):
             if p.date < today:
                 continue
             for t in p.types:
+                if t not in next_by_type:
+                    continue
                 if next_by_type[t] is None:
                     next_by_type[t] = p.date
+
 
         upcoming = [
             {"date": p.date.isoformat(), "types": p.types}
